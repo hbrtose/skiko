@@ -26,6 +26,9 @@ class Clocks(private val layer: SkiaLayer): SkikoView {
         .setDefaultFontManager(FontMgr.default)
     private val style = ParagraphStyle()
     private var inputText = ""
+    private var eventX: Double? = null
+    private var eventY: Double? = null
+    private var panning = false
 
     override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
         if (withFps) fpsCounter.tick()
@@ -44,6 +47,7 @@ class Clocks(private val layer: SkiaLayer): SkikoView {
           strokeWidth = 1f
         }
         val watchFillHover = Paint().apply { color = 0xFFE4FF01.toInt() }
+        val touchPaint = Paint().apply { color = 0xFFFF0000.toInt() }
         for (x in 0 .. width - 50 step 50) {
             for (y in 30 + platformYOffset.toInt() .. height - 50 step 50) {
                 val hover = 
@@ -105,6 +109,17 @@ class Clocks(private val layer: SkiaLayer): SkikoView {
             .build()
         input.layout(Float.POSITIVE_INFINITY)
         input.paint(canvas, 5f, platformYOffset + 20f)
+
+        if(panning) {
+            val panningInfo = ParagraphBuilder(style, fontCollection)
+                .pushStyle(TextStyle().setColor(0xFFFF0000.toInt()))
+                .addText("PANNING")
+                .popStyle()
+                .build()
+            panningInfo.layout(Float.POSITIVE_INFINITY)
+            panningInfo.paint(canvas, 5f, platformYOffset + 40f)
+        }
+        panning = false
         
         val frames = ParagraphBuilder(style, fontCollection)
             .pushStyle(TextStyle().setColor(0xff9BC730L.toInt()).setFontSize(20f))
@@ -113,7 +128,9 @@ class Clocks(private val layer: SkiaLayer): SkikoView {
             .build()
         frames.layout(Float.POSITIVE_INFINITY)
         frames.paint(canvas, ((xpos - xOffset) / scale).toFloat(), ((ypos - yOffset) / scale).toFloat())
-
+        if (eventX != null && eventY != null) {
+            canvas.drawCircle(eventX!!.toFloat().adjustX(), eventY!!.toFloat().adjustY(), 20f, touchPaint)
+        }
         canvas.resetMatrix()
     }
 
@@ -204,6 +221,7 @@ class Clocks(private val layer: SkiaLayer): SkikoView {
     }
 
     override fun onGestureEvent(event: SkikoGestureEvent) {
+        panning = false
         when (event.kind) {
             SkikoGestureEventKind.TAP -> {
                 xpos = event.x
@@ -215,12 +233,15 @@ class Clocks(private val layer: SkiaLayer): SkikoView {
                     k = scale
                 }
                 scale = k * event.scale
+                eventX = event.x
+                eventY = event.y
             }
             SkikoGestureEventKind.PAN -> {
-                xOffset += event.x - xpos
-                yOffset += event.y - ypos
-                xpos = event.x
-                ypos = event.y
+                panning = true
+//                xOffset += event.x - xpos
+//                yOffset += event.y - ypos
+//                xpos = event.x
+//                ypos = event.y
             }
             SkikoGestureEventKind.ROTATION -> {
                 rotate = event.rotation * 180.0 / PI
@@ -228,4 +249,6 @@ class Clocks(private val layer: SkiaLayer): SkikoView {
             else -> {}
         }
     }
+    private fun Float.adjustX() = ((this - xOffset) / scale).toFloat()
+    private fun Float.adjustY() = ((this - yOffset) / scale).toFloat()
 }
